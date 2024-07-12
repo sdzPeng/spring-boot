@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -117,6 +117,9 @@ public @interface ConditionalOnProperty {
 	 * <p>
 	 * Use the dashed notation to specify each property, that is all lower case with a "-"
 	 * to separate words (e.g. {@code my-long-property}).
+	 * <p>
+	 * If multiple names are specified, all of the properties have to pass the test for
+	 * the condition to match.
 	 * @return the names
 	 */
 	String[] name() default {};
@@ -131,7 +134,7 @@ public @interface ConditionalOnProperty {
 	/**
 	 * Specify if the condition should match if the property is not set. Defaults to
 	 * {@code false}.
-	 * @return if should match if the property is missing
+	 * @return if the condition should match if the property is missing
 	 */
 	boolean matchIfMissing() default false;
 

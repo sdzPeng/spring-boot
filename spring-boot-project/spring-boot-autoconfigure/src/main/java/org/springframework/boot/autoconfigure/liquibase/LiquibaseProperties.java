@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,10 @@ package org.springframework.boot.autoconfigure.liquibase;
 import java.io.File;
 import java.util.Map;
 
+import liquibase.UpdateSummaryEnum;
+import liquibase.UpdateSummaryOutputEnum;
 import liquibase.integration.spring.SpringLiquibase;
+import liquibase.ui.UIServiceEnum;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.util.Assert;
@@ -28,6 +31,9 @@ import org.springframework.util.Assert;
  * Configuration properties to configure {@link SpringLiquibase}.
  *
  * @author Marcel Overdijk
+ * @author Eddú Meléndez
+ * @author Ferenc Gratzer
+ * @author Evgeniy Cheban
  * @since 1.1.0
  */
 @ConfigurationProperties(prefix = "spring.liquibase", ignoreUnknownFields = false)
@@ -37,6 +43,12 @@ public class LiquibaseProperties {
 	 * Change log configuration path.
 	 */
 	private String changeLog = "classpath:/db/changelog/db.changelog-master.yaml";
+
+	/**
+	 * Whether to clear all checksums in the current changelog, so they will be
+	 * recalculated upon the next update.
+	 */
+	private boolean clearChecksums;
 
 	/**
 	 * Comma-separated list of runtime contexts to use.
@@ -89,6 +101,11 @@ public class LiquibaseProperties {
 	private String password;
 
 	/**
+	 * Fully qualified name of the JDBC driver. Auto-detected based on the URL by default.
+	 */
+	private String driverClassName;
+
+	/**
 	 * JDBC URL of the database to migrate. If not set, the primary configured data source
 	 * is used.
 	 */
@@ -97,7 +114,7 @@ public class LiquibaseProperties {
 	/**
 	 * Comma-separated list of runtime labels to use.
 	 */
-	private String labels;
+	private String labelFilter;
 
 	/**
 	 * Change log parameters.
@@ -113,6 +130,28 @@ public class LiquibaseProperties {
 	 * Whether rollback should be tested before update is performed.
 	 */
 	private boolean testRollbackOnUpdate;
+
+	/**
+	 * Tag name to use when applying database changes. Can also be used with
+	 * "rollbackFile" to generate a rollback script for all existing changes associated
+	 * with that tag.
+	 */
+	private String tag;
+
+	/**
+	 * Whether to print a summary of the update operation.
+	 */
+	private ShowSummary showSummary;
+
+	/**
+	 * Where to print a summary of the update operation.
+	 */
+	private ShowSummaryOutput showSummaryOutput;
+
+	/**
+	 * Which UIService to use.
+	 */
+	private UiService uiService;
 
 	public String getChangeLog() {
 		return this.changeLog;
@@ -179,6 +218,14 @@ public class LiquibaseProperties {
 		this.dropFirst = dropFirst;
 	}
 
+	public boolean isClearChecksums() {
+		return this.clearChecksums;
+	}
+
+	public void setClearChecksums(boolean clearChecksums) {
+		this.clearChecksums = clearChecksums;
+	}
+
 	public boolean isEnabled() {
 		return this.enabled;
 	}
@@ -203,6 +250,14 @@ public class LiquibaseProperties {
 		this.password = password;
 	}
 
+	public String getDriverClassName() {
+		return this.driverClassName;
+	}
+
+	public void setDriverClassName(String driverClassName) {
+		this.driverClassName = driverClassName;
+	}
+
 	public String getUrl() {
 		return this.url;
 	}
@@ -211,12 +266,12 @@ public class LiquibaseProperties {
 		this.url = url;
 	}
 
-	public String getLabels() {
-		return this.labels;
+	public String getLabelFilter() {
+		return this.labelFilter;
 	}
 
-	public void setLabels(String labels) {
-		this.labels = labels;
+	public void setLabelFilter(String labelFilter) {
+		this.labelFilter = labelFilter;
 	}
 
 	public Map<String, String> getParameters() {
@@ -241,6 +296,109 @@ public class LiquibaseProperties {
 
 	public void setTestRollbackOnUpdate(boolean testRollbackOnUpdate) {
 		this.testRollbackOnUpdate = testRollbackOnUpdate;
+	}
+
+	public String getTag() {
+		return this.tag;
+	}
+
+	public void setTag(String tag) {
+		this.tag = tag;
+	}
+
+	public ShowSummary getShowSummary() {
+		return this.showSummary;
+	}
+
+	public void setShowSummary(ShowSummary showSummary) {
+		this.showSummary = showSummary;
+	}
+
+	public ShowSummaryOutput getShowSummaryOutput() {
+		return this.showSummaryOutput;
+	}
+
+	public void setShowSummaryOutput(ShowSummaryOutput showSummaryOutput) {
+		this.showSummaryOutput = showSummaryOutput;
+	}
+
+	public UiService getUiService() {
+		return this.uiService;
+	}
+
+	public void setUiService(UiService uiService) {
+		this.uiService = uiService;
+	}
+
+	/**
+	 * Enumeration of types of summary to show. Values are the same as those on
+	 * {@link UpdateSummaryEnum}. To maximize backwards compatibility, the Liquibase enum
+	 * is not used directly.
+	 *
+	 * @since 3.2.1
+	 */
+	public enum ShowSummary {
+
+		/**
+		 * Do not show a summary.
+		 */
+		OFF,
+
+		/**
+		 * Show a summary.
+		 */
+		SUMMARY,
+
+		/**
+		 * Show a verbose summary.
+		 */
+		VERBOSE
+
+	}
+
+	/**
+	 * Enumeration of destinations to which the summary should be output. Values are the
+	 * same as those on {@link UpdateSummaryOutputEnum}. To maximize backwards
+	 * compatibility, the Liquibase enum is not used directly.
+	 *
+	 * @since 3.2.1
+	 */
+	public enum ShowSummaryOutput {
+
+		/**
+		 * Log the summary.
+		 */
+		LOG,
+
+		/**
+		 * Output the summary to the console.
+		 */
+		CONSOLE,
+
+		/**
+		 * Log the summary and output it to the console.
+		 */
+		ALL
+
+	}
+
+	/**
+	 * Enumeration of types of UIService. Values are the same as those on
+	 * {@link UIServiceEnum}. To maximize backwards compatibility, the Liquibase enum is
+	 * not used directly.
+	 */
+	public enum UiService {
+
+		/**
+		 * Console-based UIService.
+		 */
+		CONSOLE,
+
+		/**
+		 * Logging-based UIService.
+		 */
+		LOGGER
+
 	}
 
 }

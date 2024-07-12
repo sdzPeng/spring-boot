@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,22 +17,25 @@
 package org.springframework.boot.autoconfigure.rsocket;
 
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-import io.rsocket.RSocketFactory;
 import io.rsocket.SocketAcceptor;
+import io.rsocket.core.RSocketServer;
 import io.rsocket.transport.ServerTransport;
 import io.rsocket.transport.netty.server.WebsocketRouteTransport;
 import reactor.netty.http.server.HttpServerRoutes;
+import reactor.netty.http.server.WebsocketServerSpec;
+import reactor.netty.http.server.WebsocketServerSpec.Builder;
 
-import org.springframework.boot.rsocket.server.ServerRSocketFactoryProcessor;
+import org.springframework.boot.rsocket.server.RSocketServerCustomizer;
 import org.springframework.boot.web.embedded.netty.NettyRouteProvider;
 
 /**
  * {@link NettyRouteProvider} that configures an RSocket Websocket endpoint.
  *
  * @author Brian Clozel
+ * @author Leo Li
  */
 class RSocketWebSocketNettyRouteProvider implements NettyRouteProvider {
 
@@ -40,23 +43,31 @@ class RSocketWebSocketNettyRouteProvider implements NettyRouteProvider {
 
 	private final SocketAcceptor socketAcceptor;
 
-	private final List<ServerRSocketFactoryProcessor> processors;
+	private final List<RSocketServerCustomizer> customizers;
+
+	private final Consumer<Builder> serverSpecCustomizer;
 
 	RSocketWebSocketNettyRouteProvider(String mappingPath, SocketAcceptor socketAcceptor,
-			Stream<ServerRSocketFactoryProcessor> processors) {
+			Consumer<Builder> serverSpecCustomizer, Stream<RSocketServerCustomizer> customizers) {
 		this.mappingPath = mappingPath;
 		this.socketAcceptor = socketAcceptor;
-		this.processors = processors.collect(Collectors.toList());
+		this.serverSpecCustomizer = serverSpecCustomizer;
+		this.customizers = customizers.toList();
 	}
 
 	@Override
 	public HttpServerRoutes apply(HttpServerRoutes httpServerRoutes) {
-		RSocketFactory.ServerRSocketFactory server = RSocketFactory.receive();
-		for (ServerRSocketFactoryProcessor processor : this.processors) {
-			server = processor.process(server);
-		}
-		ServerTransport.ConnectionAcceptor acceptor = server.acceptor(this.socketAcceptor).toConnectionAcceptor();
-		return httpServerRoutes.ws(this.mappingPath, WebsocketRouteTransport.newHandler(acceptor));
+		RSocketServer server = RSocketServer.create(this.socketAcceptor);
+		this.customizers.forEach((customizer) -> customizer.customize(server));
+		ServerTransport.ConnectionAcceptor connectionAcceptor = server.asConnectionAcceptor();
+		return httpServerRoutes.ws(this.mappingPath, WebsocketRouteTransport.newHandler(connectionAcceptor),
+				createWebsocketServerSpec());
+	}
+
+	private WebsocketServerSpec createWebsocketServerSpec() {
+		WebsocketServerSpec.Builder builder = WebsocketServerSpec.builder();
+		this.serverSpecCustomizer.accept(builder);
+		return builder.build();
 	}
 
 }

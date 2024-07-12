@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,16 @@ package org.springframework.boot.web.server;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import org.springframework.boot.ssl.SslBundle;
+import org.springframework.boot.ssl.SslBundles;
+import org.springframework.boot.web.server.Ssl.ServerNameSslBundle;
 import org.springframework.util.Assert;
 
 /**
@@ -35,6 +41,7 @@ import org.springframework.util.Assert;
  * @author Ivan Sopov
  * @author Eddú Meléndez
  * @author Brian Clozel
+ * @author Scott Frederick
  * @since 2.0.0
  */
 public abstract class AbstractConfigurableWebServerFactory implements ConfigurableWebServerFactory {
@@ -47,13 +54,15 @@ public abstract class AbstractConfigurableWebServerFactory implements Configurab
 
 	private Ssl ssl;
 
-	private SslStoreProvider sslStoreProvider;
+	private SslBundles sslBundles;
 
 	private Http2 http2;
 
 	private Compression compression;
 
 	private String serverHeader;
+
+	private Shutdown shutdown = Shutdown.IMMEDIATE;
 
 	/**
 	 * Create a new {@link AbstractConfigurableWebServerFactory} instance.
@@ -126,13 +135,18 @@ public abstract class AbstractConfigurableWebServerFactory implements Configurab
 		this.ssl = ssl;
 	}
 
-	public SslStoreProvider getSslStoreProvider() {
-		return this.sslStoreProvider;
+	/**
+	 * Return the configured {@link SslBundles}.
+	 * @return the {@link SslBundles} or {@code null}
+	 * @since 3.2.0
+	 */
+	public SslBundles getSslBundles() {
+		return this.sslBundles;
 	}
 
 	@Override
-	public void setSslStoreProvider(SslStoreProvider sslStoreProvider) {
-		this.sslStoreProvider = sslStoreProvider;
+	public void setSslBundles(SslBundles sslBundles) {
+		this.sslBundles = sslBundles;
 	}
 
 	public Http2 getHttp2() {
@@ -162,6 +176,35 @@ public abstract class AbstractConfigurableWebServerFactory implements Configurab
 		this.serverHeader = serverHeader;
 	}
 
+	@Override
+	public void setShutdown(Shutdown shutdown) {
+		this.shutdown = shutdown;
+	}
+
+	/**
+	 * Returns the shutdown configuration that will be applied to the server.
+	 * @return the shutdown configuration
+	 * @since 2.3.0
+	 */
+	public Shutdown getShutdown() {
+		return this.shutdown;
+	}
+
+	/**
+	 * Return the {@link SslBundle} that should be used with this server.
+	 * @return the SSL bundle
+	 */
+	protected final SslBundle getSslBundle() {
+		return WebServerSslBundle.get(this.ssl, this.sslBundles);
+	}
+
+	protected final Map<String, SslBundle> getServerNameSslBundles() {
+		return this.ssl.getServerNameBundles()
+			.stream()
+			.collect(Collectors.toMap(ServerNameSslBundle::serverName,
+					(serverNameSslBundle) -> this.sslBundles.getBundle(serverNameSslBundle.bundle())));
+	}
+
 	/**
 	 * Return the absolute temp dir for given web server.
 	 * @param prefix server name
@@ -169,9 +212,7 @@ public abstract class AbstractConfigurableWebServerFactory implements Configurab
 	 */
 	protected final File createTempDir(String prefix) {
 		try {
-			File tempDir = File.createTempFile(prefix + ".", "." + getPort());
-			tempDir.delete();
-			tempDir.mkdir();
+			File tempDir = Files.createTempDirectory(prefix + "." + getPort() + ".").toFile();
 			tempDir.deleteOnExit();
 			return tempDir;
 		}

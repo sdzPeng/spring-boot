@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.util.Map;
 
 import org.springframework.boot.actuate.metrics.export.prometheus.PrometheusPushGatewayManager.ShutdownOperation;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.DeprecatedConfigurationProperty;
 
 /**
  * {@link ConfigurationProperties @ConfigurationProperties} for configuring metrics export
@@ -31,8 +32,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author Stephane Nicoll
  * @since 2.0.0
  */
-@ConfigurationProperties(prefix = "management.metrics.export.prometheus")
+@ConfigurationProperties(prefix = "management.prometheus.metrics.export")
 public class PrometheusProperties {
+
+	/**
+	 * Whether exporting of metrics to this backend is enabled.
+	 */
+	private boolean enabled = true;
 
 	/**
 	 * Whether to enable publishing descriptions as part of the scrape payload to
@@ -47,6 +53,17 @@ public class PrometheusProperties {
 	private final Pushgateway pushgateway = new Pushgateway();
 
 	/**
+	 * Histogram type for backing DistributionSummary and Timer.
+	 */
+	@Deprecated(since = "3.3.0", forRemoval = true)
+	private HistogramFlavor histogramFlavor = HistogramFlavor.Prometheus;
+
+	/**
+	 * Additional properties to pass to the Prometheus client.
+	 */
+	private final Map<String, String> properties = new HashMap<>();
+
+	/**
 	 * Step size (i.e. reporting frequency) to use.
 	 */
 	private Duration step = Duration.ofMinutes(1);
@@ -59,6 +76,17 @@ public class PrometheusProperties {
 		this.descriptions = descriptions;
 	}
 
+	@Deprecated(since = "3.3.0", forRemoval = true)
+	@DeprecatedConfigurationProperty(since = "3.3.0",
+			reason = "No longer supported. Works only when using the Prometheus simpleclient.")
+	public HistogramFlavor getHistogramFlavor() {
+		return this.histogramFlavor;
+	}
+
+	public void setHistogramFlavor(HistogramFlavor histogramFlavor) {
+		this.histogramFlavor = histogramFlavor;
+	}
+
 	public Duration getStep() {
 		return this.step;
 	}
@@ -67,8 +95,20 @@ public class PrometheusProperties {
 		this.step = step;
 	}
 
+	public boolean isEnabled() {
+		return this.enabled;
+	}
+
+	public void setEnabled(boolean enabled) {
+		this.enabled = enabled;
+	}
+
 	public Pushgateway getPushgateway() {
 		return this.pushgateway;
+	}
+
+	public Map<String, String> getProperties() {
+		return this.properties;
 	}
 
 	/**
@@ -77,7 +117,7 @@ public class PrometheusProperties {
 	public static class Pushgateway {
 
 		/**
-		 * Enable publishing via a Prometheus Pushgateway.
+		 * Enable publishing over a Prometheus Pushgateway.
 		 */
 		private Boolean enabled = false;
 
@@ -85,6 +125,16 @@ public class PrometheusProperties {
 		 * Base URL for the Pushgateway.
 		 */
 		private String baseUrl = "http://localhost:9091";
+
+		/**
+		 * Login user of the Prometheus Pushgateway.
+		 */
+		private String username;
+
+		/**
+		 * Login password of the Prometheus Pushgateway.
+		 */
+		private String password;
 
 		/**
 		 * Frequency with which to push metrics.
@@ -122,6 +172,22 @@ public class PrometheusProperties {
 			this.baseUrl = baseUrl;
 		}
 
+		public String getUsername() {
+			return this.username;
+		}
+
+		public void setUsername(String username) {
+			this.username = username;
+		}
+
+		public String getPassword() {
+			return this.password;
+		}
+
+		public void setPassword(String password) {
+			this.password = password;
+		}
+
 		public Duration getPushRate() {
 			return this.pushRate;
 		}
@@ -153,6 +219,18 @@ public class PrometheusProperties {
 		public void setShutdownOperation(ShutdownOperation shutdownOperation) {
 			this.shutdownOperation = shutdownOperation;
 		}
+
+	}
+
+	/**
+	 * Prometheus Histogram flavor.
+	 *
+	 * @deprecated since 3.3.0 for removal in 3.5.0
+	 */
+	@Deprecated(since = "3.3.0", forRemoval = true)
+	public enum HistogramFlavor {
+
+		Prometheus, VictoriaMetrics;
 
 	}
 

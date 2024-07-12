@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 package org.springframework.boot.actuate.autoconfigure.endpoint.web.documentation;
 
+import java.time.Instant;
 import java.util.Collection;
-import java.util.Date;
 import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.Test;
@@ -33,15 +33,13 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.annotation.SchedulingConfigurer;
 import org.springframework.scheduling.config.ScheduledTaskHolder;
-import org.springframework.test.web.servlet.result.MockMvcResultHandlers;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.replacePattern;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Tests for generating documentation describing the {@link ScheduledTasksEndpoint}.
@@ -51,29 +49,28 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ScheduledTasksEndpointDocumentationTests extends MockMvcEndpointDocumentationTests {
 
 	@Test
-	void scheduledTasks() throws Exception {
-		this.mockMvc.perform(get("/actuator/scheduledtasks")).andExpect(status().isOk())
-				.andDo(document("scheduled-tasks",
-						preprocessResponse(replacePattern(
-								Pattern.compile("org.*\\.ScheduledTasksEndpointDocumentationTests\\$TestConfiguration"),
-								"com.example.Processor")),
-						responseFields(fieldWithPath("cron").description("Cron tasks, if any."),
-								targetFieldWithPrefix("cron.[]."),
-								fieldWithPath("cron.[].expression").description("Cron expression."),
-								fieldWithPath("fixedDelay").description("Fixed delay tasks, if any."),
-								targetFieldWithPrefix("fixedDelay.[]."), initialDelayWithPrefix("fixedDelay.[]."),
-								fieldWithPath("fixedDelay.[].interval")
-										.description("Interval, in milliseconds, between the end of the last"
-												+ " execution and the start of the next."),
-								fieldWithPath("fixedRate").description("Fixed rate tasks, if any."),
-								targetFieldWithPrefix("fixedRate.[]."),
-								fieldWithPath("fixedRate.[].interval")
-										.description("Interval, in milliseconds, between the start of each execution."),
-								initialDelayWithPrefix("fixedRate.[]."),
-								fieldWithPath("custom").description("Tasks with custom triggers, if any."),
-								targetFieldWithPrefix("custom.[]."),
-								fieldWithPath("custom.[].trigger").description("Trigger for the task."))))
-				.andDo(MockMvcResultHandlers.print());
+	void scheduledTasks() {
+		assertThat(this.mvc.get().uri("/actuator/scheduledtasks")).hasStatusOk()
+			.apply(document("scheduled-tasks",
+					preprocessResponse(replacePattern(
+							Pattern.compile("org.*\\.ScheduledTasksEndpointDocumentationTests\\$TestConfiguration"),
+							"com.example.Processor")),
+					responseFields(fieldWithPath("cron").description("Cron tasks, if any."),
+							targetFieldWithPrefix("cron.[]."),
+							fieldWithPath("cron.[].expression").description("Cron expression."),
+							fieldWithPath("fixedDelay").description("Fixed delay tasks, if any."),
+							targetFieldWithPrefix("fixedDelay.[]."), initialDelayWithPrefix("fixedDelay.[]."),
+							fieldWithPath("fixedDelay.[].interval")
+								.description("Interval, in milliseconds, between the end of the last"
+										+ " execution and the start of the next."),
+							fieldWithPath("fixedRate").description("Fixed rate tasks, if any."),
+							targetFieldWithPrefix("fixedRate.[]."),
+							fieldWithPath("fixedRate.[].interval")
+								.description("Interval, in milliseconds, between the start of each execution."),
+							initialDelayWithPrefix("fixedRate.[]."),
+							fieldWithPath("custom").description("Tasks with custom triggers, if any."),
+							targetFieldWithPrefix("custom.[]."),
+							fieldWithPath("custom.[].trigger").description("Trigger for the task."))));
 	}
 
 	private FieldDescriptor targetFieldWithPrefix(String prefix) {
@@ -117,8 +114,8 @@ class ScheduledTasksEndpointDocumentationTests extends MockMvcEndpointDocumentat
 		static class CustomTrigger implements Trigger {
 
 			@Override
-			public Date nextExecutionTime(TriggerContext triggerContext) {
-				return new Date();
+			public Instant nextExecution(TriggerContext triggerContext) {
+				return Instant.now();
 			}
 
 		}

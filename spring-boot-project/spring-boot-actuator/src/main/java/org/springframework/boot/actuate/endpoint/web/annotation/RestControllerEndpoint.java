@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,8 +36,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 /**
  * Identifies a type as being a REST endpoint that is only exposed over Spring MVC or
  * Spring WebFlux. Mapped methods must be annotated with {@link GetMapping @GetMapping},
- * {@link PostMapping @PostMapping}, {@link DeleteMapping @DeleteMapping}, etc annotations
- * rather than {@link ReadOperation @ReadOperation},
+ * {@link PostMapping @PostMapping}, {@link DeleteMapping @DeleteMapping}, etc.
+ * annotations rather than {@link ReadOperation @ReadOperation},
  * {@link WriteOperation @WriteOperation}, {@link DeleteOperation @DeleteOperation}.
  * <p>
  * This annotation can be used when deeper Spring integration is required, but at the
@@ -48,6 +48,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
  * @since 2.0.0
  * @see WebEndpoint
  * @see ControllerEndpoint
+ * @deprecated since 3.3.0 in favor of {@code @Endpoint} and {@code @WebEndpoint}
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
@@ -55,6 +56,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Endpoint
 @FilteredEndpoint(ControllerEndpointFilter.class)
 @ResponseBody
+@Deprecated(since = "3.3.0", forRemoval = true)
 public @interface RestControllerEndpoint {
 
 	/**

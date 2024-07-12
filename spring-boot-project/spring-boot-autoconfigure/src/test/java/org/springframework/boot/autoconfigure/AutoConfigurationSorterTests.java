@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.core.Ordered;
+import org.springframework.core.type.AnnotationMetadata;
 import org.springframework.core.type.classreading.CachingMetadataReaderFactory;
 import org.springframework.core.type.classreading.MetadataReader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
@@ -43,6 +45,8 @@ import static org.mockito.Mockito.mock;
  *
  * @author Phillip Webb
  * @author Andy Wilkinson
+ * @author Moritz Halbritter
+ * @author Alexandre Baron
  */
 class AutoConfigurationSorterTests {
 
@@ -54,7 +58,13 @@ class AutoConfigurationSorterTests {
 
 	private static final String A = AutoConfigureA.class.getName();
 
+	private static final String A2 = AutoConfigureA2.class.getName();
+
+	private static final String A3 = AutoConfigureA3.class.getName();
+
 	private static final String B = AutoConfigureB.class.getName();
+
+	private static final String B2 = AutoConfigureB2.class.getName();
 
 	private static final String C = AutoConfigureC.class.getName();
 
@@ -64,15 +74,17 @@ class AutoConfigurationSorterTests {
 
 	private static final String W = AutoConfigureW.class.getName();
 
+	private static final String W2 = AutoConfigureW2.class.getName();
+
 	private static final String X = AutoConfigureX.class.getName();
 
 	private static final String Y = AutoConfigureY.class.getName();
 
+	private static final String Y2 = AutoConfigureY2.class.getName();
+
 	private static final String Z = AutoConfigureZ.class.getName();
 
-	private static final String A2 = AutoConfigureA2.class.getName();
-
-	private static final String W2 = AutoConfigureW2.class.getName();
+	private static final String Z2 = AutoConfigureZ2.class.getName();
 
 	private AutoConfigurationSorter sorter;
 
@@ -96,9 +108,39 @@ class AutoConfigurationSorterTests {
 	}
 
 	@Test
+	void byAutoConfigureAfterAliasFor() {
+		List<String> actual = this.sorter.getInPriorityOrder(Arrays.asList(A3, B2, C));
+		assertThat(actual).containsExactly(C, B2, A3);
+	}
+
+	@Test
+	void byAutoConfigureAfterAliasForWithProperties() throws Exception {
+		MetadataReaderFactory readerFactory = new CachingMetadataReaderFactory();
+		this.autoConfigurationMetadata = getAutoConfigurationMetadata(A3, B2, C);
+		this.sorter = new AutoConfigurationSorter(readerFactory, this.autoConfigurationMetadata);
+		List<String> actual = this.sorter.getInPriorityOrder(Arrays.asList(A3, B2, C));
+		assertThat(actual).containsExactly(C, B2, A3);
+	}
+
+	@Test
 	void byAutoConfigureBefore() {
 		List<String> actual = this.sorter.getInPriorityOrder(Arrays.asList(X, Y, Z));
 		assertThat(actual).containsExactly(Z, Y, X);
+	}
+
+	@Test
+	void byAutoConfigureBeforeAliasFor() {
+		List<String> actual = this.sorter.getInPriorityOrder(Arrays.asList(X, Y2, Z2));
+		assertThat(actual).containsExactly(Z2, Y2, X);
+	}
+
+	@Test
+	void byAutoConfigureBeforeAliasForWithProperties() throws Exception {
+		MetadataReaderFactory readerFactory = new CachingMetadataReaderFactory();
+		this.autoConfigurationMetadata = getAutoConfigurationMetadata(X, Y2, Z2);
+		this.sorter = new AutoConfigurationSorter(readerFactory, this.autoConfigurationMetadata);
+		List<String> actual = this.sorter.getInPriorityOrder(Arrays.asList(X, Y2, Z2));
+		assertThat(actual).containsExactly(Z2, Y2, X);
 	}
 
 	@Test
@@ -135,7 +177,7 @@ class AutoConfigurationSorterTests {
 	void byAutoConfigureAfterWithCycle() {
 		this.sorter = new AutoConfigurationSorter(new CachingMetadataReaderFactory(), this.autoConfigurationMetadata);
 		assertThatIllegalStateException().isThrownBy(() -> this.sorter.getInPriorityOrder(Arrays.asList(A, B, C, D)))
-				.withMessageContaining("AutoConfigure cycle detected");
+			.withMessageContaining("AutoConfigure cycle detected");
 	}
 
 	@Test
@@ -162,7 +204,18 @@ class AutoConfigurationSorterTests {
 		this.autoConfigurationMetadata = getAutoConfigurationMetadata(A, B, D);
 		this.sorter = new AutoConfigurationSorter(readerFactory, this.autoConfigurationMetadata);
 		assertThatIllegalStateException().isThrownBy(() -> this.sorter.getInPriorityOrder(Arrays.asList(D, B)))
-				.withMessageContaining("AutoConfigure cycle detected");
+			.withMessageContaining("AutoConfigure cycle detected");
+	}
+
+	@Test // gh-38904
+	void byBeforeAnnotationThenOrderAnnotation() {
+		String oa = OrderAutoConfigureA.class.getName();
+		String oa1 = OrderAutoConfigureASeedR1.class.getName();
+		String oa2 = OrderAutoConfigureASeedY2.class.getName();
+		String oa3 = OrderAutoConfigureASeedA3.class.getName();
+		String oa4 = OrderAutoConfigureAutoConfigureASeedG4.class.getName();
+		List<String> actual = this.sorter.getInPriorityOrder(Arrays.asList(oa4, oa3, oa2, oa1, oa));
+		assertThat(actual).containsExactly(oa1, oa2, oa3, oa4, oa);
 	}
 
 	private AutoConfigurationMetadata getAutoConfigurationMetadata(String... classNames) throws Exception {
@@ -170,29 +223,52 @@ class AutoConfigurationSorterTests {
 		for (String className : classNames) {
 			Class<?> type = ClassUtils.forName(className, null);
 			properties.put(type.getName(), "");
-			AutoConfigureOrder order = type.getDeclaredAnnotation(AutoConfigureOrder.class);
-			if (order != null) {
-				properties.put(className + ".AutoConfigureOrder", String.valueOf(order.value()));
-			}
-			AutoConfigureBefore autoConfigureBefore = type.getDeclaredAnnotation(AutoConfigureBefore.class);
-			if (autoConfigureBefore != null) {
-				properties.put(className + ".AutoConfigureBefore",
-						merge(autoConfigureBefore.value(), autoConfigureBefore.name()));
-			}
-			AutoConfigureAfter autoConfigureAfter = type.getDeclaredAnnotation(AutoConfigureAfter.class);
-			if (autoConfigureAfter != null) {
-				properties.put(className + ".AutoConfigureAfter",
-						merge(autoConfigureAfter.value(), autoConfigureAfter.name()));
-			}
+			AnnotationMetadata annotationMetadata = AnnotationMetadata.introspect(type);
+			addAutoConfigureOrder(properties, className, annotationMetadata);
+			addAutoConfigureBefore(properties, className, annotationMetadata);
+			addAutoConfigureAfter(properties, className, annotationMetadata);
 		}
 		return AutoConfigurationMetadataLoader.loadMetadata(properties);
 	}
 
-	private String merge(Class<?>[] value, String[] name) {
-		Set<String> items = new LinkedHashSet<>();
-		for (Class<?> type : value) {
-			items.add(type.getName());
+	private void addAutoConfigureAfter(Properties properties, String className, AnnotationMetadata annotationMetadata) {
+		Map<String, Object> autoConfigureAfter = annotationMetadata
+			.getAnnotationAttributes(AutoConfigureAfter.class.getName(), true);
+		if (autoConfigureAfter != null) {
+			String value = merge((String[]) autoConfigureAfter.get("value"), (String[]) autoConfigureAfter.get("name"));
+			if (!value.isEmpty()) {
+				properties.put(className + ".AutoConfigureAfter", value);
+			}
 		}
+	}
+
+	private void addAutoConfigureBefore(Properties properties, String className,
+			AnnotationMetadata annotationMetadata) {
+		Map<String, Object> autoConfigureBefore = annotationMetadata
+			.getAnnotationAttributes(AutoConfigureBefore.class.getName(), true);
+		if (autoConfigureBefore != null) {
+			String value = merge((String[]) autoConfigureBefore.get("value"),
+					(String[]) autoConfigureBefore.get("name"));
+			if (!value.isEmpty()) {
+				properties.put(className + ".AutoConfigureBefore", value);
+			}
+		}
+	}
+
+	private void addAutoConfigureOrder(Properties properties, String className, AnnotationMetadata annotationMetadata) {
+		Map<String, Object> autoConfigureOrder = annotationMetadata
+			.getAnnotationAttributes(AutoConfigureOrder.class.getName());
+		if (autoConfigureOrder != null) {
+			Integer order = (Integer) autoConfigureOrder.get("order");
+			if (order != null) {
+				properties.put(className + ".AutoConfigureOrder", String.valueOf(order));
+			}
+		}
+	}
+
+	private String merge(String[] value, String[] name) {
+		Set<String> items = new LinkedHashSet<>();
+		Collections.addAll(items, value);
 		Collections.addAll(items, name);
 		return StringUtils.collectionToCommaDelimitedString(items);
 	}
@@ -222,8 +298,18 @@ class AutoConfigurationSorterTests {
 
 	}
 
+	@AutoConfiguration(after = AutoConfigureB2.class)
+	static class AutoConfigureA3 {
+
+	}
+
 	@AutoConfigureAfter({ AutoConfigureC.class, AutoConfigureD.class, AutoConfigureE.class })
 	static class AutoConfigureB {
+
+	}
+
+	@AutoConfiguration(after = { AutoConfigureC.class })
+	static class AutoConfigureB2 {
 
 	}
 
@@ -259,8 +345,48 @@ class AutoConfigurationSorterTests {
 
 	}
 
+	@AutoConfiguration(before = AutoConfigureX.class)
+	static class AutoConfigureY2 {
+
+	}
+
 	@AutoConfigureBefore(AutoConfigureY.class)
 	static class AutoConfigureZ {
+
+	}
+
+	@AutoConfiguration(before = AutoConfigureY2.class)
+	static class AutoConfigureZ2 {
+
+	}
+
+	static class OrderAutoConfigureA {
+
+	}
+
+	// Use seeds in auto-configuration class names to mislead the sort by names done in
+	// AutoConfigurationSorter class.
+	@AutoConfigureBefore(OrderAutoConfigureA.class)
+	@AutoConfigureOrder(1)
+	static class OrderAutoConfigureASeedR1 {
+
+	}
+
+	@AutoConfigureBefore(OrderAutoConfigureA.class)
+	@AutoConfigureOrder(2)
+	static class OrderAutoConfigureASeedY2 {
+
+	}
+
+	@AutoConfigureBefore(OrderAutoConfigureA.class)
+	@AutoConfigureOrder(3)
+	static class OrderAutoConfigureASeedA3 {
+
+	}
+
+	@AutoConfigureBefore(OrderAutoConfigureA.class)
+	@AutoConfigureOrder(4)
+	static class OrderAutoConfigureAutoConfigureASeedG4 {
 
 	}
 

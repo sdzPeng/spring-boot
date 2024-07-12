@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,9 +29,10 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.cfg.EnumFeature;
+import com.fasterxml.jackson.databind.cfg.JsonNodeFeature;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.context.properties.DeprecatedConfigurationProperty;
 
 /**
  * Configuration properties to configure Jackson.
@@ -39,6 +40,7 @@ import org.springframework.boot.context.properties.DeprecatedConfigurationProper
  * @author Andy Wilkinson
  * @author Marcel Overdijk
  * @author Johannes Edmeier
+ * @author Eddú Meléndez
  * @since 1.2.0
  */
 @ConfigurationProperties(prefix = "spring.jackson")
@@ -46,19 +48,13 @@ public class JacksonProperties {
 
 	/**
 	 * Date format string or a fully-qualified date format class name. For instance,
-	 * `yyyy-MM-dd HH:mm:ss`.
+	 * 'yyyy-MM-dd HH:mm:ss'.
 	 */
 	private String dateFormat;
 
 	/**
-	 * Joda date time format string. If not configured, "date-format" is used as a
-	 * fallback if it is configured with a format string.
-	 */
-	private String jodaDateTimeFormat;
-
-	/**
-	 * One of the constants on Jackson's PropertyNamingStrategy. Can also be a
-	 * fully-qualified class name of a PropertyNamingStrategy subclass.
+	 * One of the constants on Jackson's PropertyNamingStrategies. Can also be a
+	 * fully-qualified class name of a PropertyNamingStrategy implementation.
 	 */
 	private String propertyNamingStrategy;
 
@@ -100,6 +96,17 @@ public class JacksonProperties {
 	private JsonInclude.Include defaultPropertyInclusion;
 
 	/**
+	 * Global default setting (if any) for leniency.
+	 */
+	private Boolean defaultLeniency;
+
+	/**
+	 * Strategy to use to auto-detect constructor, and in particular behavior with
+	 * single-argument constructors.
+	 */
+	private ConstructorDetectorStrategy constructorDetector;
+
+	/**
 	 * Time zone used when formatting dates. For instance, "America/Los_Angeles" or
 	 * "GMT+10".
 	 */
@@ -110,24 +117,14 @@ public class JacksonProperties {
 	 */
 	private Locale locale;
 
+	private final Datatype datatype = new Datatype();
+
 	public String getDateFormat() {
 		return this.dateFormat;
 	}
 
 	public void setDateFormat(String dateFormat) {
 		this.dateFormat = dateFormat;
-	}
-
-	@Deprecated
-	@DeprecatedConfigurationProperty(replacement = "dateFormat",
-			reason = "Auto-configuration for Jackson's Joda-Time integration is "
-					+ "deprecated in favor of its Java 8 Time integration")
-	public String getJodaDateTimeFormat() {
-		return this.jodaDateTimeFormat;
-	}
-
-	public void setJodaDateTimeFormat(String jodaDataTimeFormat) {
-		this.jodaDateTimeFormat = jodaDataTimeFormat;
 	}
 
 	public String getPropertyNamingStrategy() {
@@ -170,6 +167,22 @@ public class JacksonProperties {
 		this.defaultPropertyInclusion = defaultPropertyInclusion;
 	}
 
+	public Boolean getDefaultLeniency() {
+		return this.defaultLeniency;
+	}
+
+	public void setDefaultLeniency(Boolean defaultLeniency) {
+		this.defaultLeniency = defaultLeniency;
+	}
+
+	public ConstructorDetectorStrategy getConstructorDetector() {
+		return this.constructorDetector;
+	}
+
+	public void setConstructorDetector(ConstructorDetectorStrategy constructorDetector) {
+		this.constructorDetector = constructorDetector;
+	}
+
 	public TimeZone getTimeZone() {
 		return this.timeZone;
 	}
@@ -184,6 +197,57 @@ public class JacksonProperties {
 
 	public void setLocale(Locale locale) {
 		this.locale = locale;
+	}
+
+	public Datatype getDatatype() {
+		return this.datatype;
+	}
+
+	public enum ConstructorDetectorStrategy {
+
+		/**
+		 * Use heuristics to see if "properties" mode is to be used.
+		 */
+		DEFAULT,
+
+		/**
+		 * Assume "properties" mode if not explicitly annotated otherwise.
+		 */
+		USE_PROPERTIES_BASED,
+
+		/**
+		 * Assume "delegating" mode if not explicitly annotated otherwise.
+		 */
+		USE_DELEGATING,
+
+		/**
+		 * Refuse to decide implicit mode and instead throw an InvalidDefinitionException
+		 * for ambiguous cases.
+		 */
+		EXPLICIT_ONLY
+
+	}
+
+	public static class Datatype {
+
+		/**
+		 * Jackson on/off features for enums.
+		 */
+		private final Map<EnumFeature, Boolean> enumFeatures = new EnumMap<>(EnumFeature.class);
+
+		/**
+		 * Jackson on/off features for JsonNodes.
+		 */
+		private final Map<JsonNodeFeature, Boolean> jsonNode = new EnumMap<>(JsonNodeFeature.class);
+
+		public Map<EnumFeature, Boolean> getEnum() {
+			return this.enumFeatures;
+		}
+
+		public Map<JsonNodeFeature, Boolean> getJsonNode() {
+			return this.jsonNode;
+		}
+
 	}
 
 }

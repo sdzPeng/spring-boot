@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author Stephane Nicoll
  * @author Artsiom Yudovin
  */
-public abstract class PushRegistryPropertiesConfigAdapterTests<P extends PushRegistryProperties, A extends PushRegistryPropertiesConfigAdapter<P>> {
+public abstract class PushRegistryPropertiesConfigAdapterTests<P extends PushRegistryProperties, A extends PushRegistryPropertiesConfigAdapter<P>>
+		extends AbstractPropertiesConfigAdapterTests<P, PropertiesConfigAdapter<P>> {
+
+	protected PushRegistryPropertiesConfigAdapterTests(Class<A> adapter) {
+		super(adapter);
+	}
 
 	protected abstract P createProperties();
 
@@ -40,7 +45,7 @@ public abstract class PushRegistryPropertiesConfigAdapterTests<P extends PushReg
 	void whenPropertiesStepIsSetAdapterStepReturnsIt() {
 		P properties = createProperties();
 		properties.setStep(Duration.ofSeconds(42));
-		assertThat(createConfigAdapter(properties).step()).isEqualTo(Duration.ofSeconds(42));
+		assertThat(createConfigAdapter(properties).step()).hasSeconds(42);
 	}
 
 	@Test
@@ -51,14 +56,7 @@ public abstract class PushRegistryPropertiesConfigAdapterTests<P extends PushReg
 	}
 
 	@Test
-	void whenPropertiesNumThreadsIsSetAdapterNumThreadsReturnsIt() {
-		P properties = createProperties();
-		properties.setNumThreads(42);
-		assertThat(createConfigAdapter(properties).numThreads()).isEqualTo(42);
-	}
-
-	@Test
-	void whenPropertiesBatchSizeIsSetAdapterBatchSizeReturnsIt() {
+	protected void whenPropertiesBatchSizeIsSetAdapterBatchSizeReturnsIt() {
 		P properties = createProperties();
 		properties.setBatchSize(10042);
 		assertThat(createConfigAdapter(properties).batchSize()).isEqualTo(10042);

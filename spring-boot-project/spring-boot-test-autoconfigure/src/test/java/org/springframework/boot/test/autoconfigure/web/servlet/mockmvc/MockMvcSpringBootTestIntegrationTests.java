@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,11 +23,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.MockMvcPrint;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.ApplicationContext;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,8 +39,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Tests for {@link SpringBootTest @SpringBootTest} with
  * {@link AutoConfigureMockMvc @AutoConfigureMockMvc} (i.e. full integration test).
+ * <p>
+ * This uses the regular {@link MockMvc} (Hamcrest integration).
  *
  * @author Phillip Webb
+ * @author Moritz Halbritter
  */
 @SpringBootTest
 @AutoConfigureMockMvc(print = MockMvcPrint.SYSTEM_ERR, printOnlyOnFailure = false)
@@ -47,7 +51,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(OutputCaptureExtension.class)
 class MockMvcSpringBootTestIntegrationTests {
 
-	@MockBean
+	@MockitoBean
 	private ExampleMockableService service;
 
 	@Autowired
@@ -75,6 +79,18 @@ class MockMvcSpringBootTestIntegrationTests {
 	@Test
 	void shouldHaveRealService() {
 		assertThat(this.applicationContext.getBean(ExampleRealService.class)).isNotNull();
+	}
+
+	@Test
+	void shouldTestWithWebTestClient(@Autowired WebTestClient webTestClient) {
+		webTestClient.get().uri("/one").exchange().expectStatus().isOk().expectBody(String.class).isEqualTo("one");
+	}
+
+	@Test
+	void shouldNotFailIfFormattingValueThrowsException(CapturedOutput output) throws Exception {
+		this.mvc.perform(get("/formatting")).andExpect(content().string("formatting")).andExpect(status().isOk());
+		assertThat(output).contains(
+				"Session Attrs = << Exception 'java.lang.IllegalStateException: Formatting failed' occurred while formatting >>");
 	}
 
 }

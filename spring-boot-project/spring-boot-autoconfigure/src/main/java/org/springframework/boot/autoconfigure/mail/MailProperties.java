@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ public class MailProperties {
 	private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
 	/**
-	 * SMTP server host. For instance, `smtp.example.com`.
+	 * SMTP server host. For instance, 'smtp.example.com'.
 	 */
 	private String host;
 
@@ -69,12 +69,17 @@ public class MailProperties {
 	/**
 	 * Additional JavaMail Session properties.
 	 */
-	private Map<String, String> properties = new HashMap<>();
+	private final Map<String, String> properties = new HashMap<>();
 
 	/**
 	 * Session JNDI name. When set, takes precedence over other Session settings.
 	 */
 	private String jndiName;
+
+	/**
+	 * SSL configuration.
+	 */
+	private final Ssl ssl = new Ssl();
 
 	public String getHost() {
 		return this.host;
@@ -134,6 +139,47 @@ public class MailProperties {
 
 	public String getJndiName() {
 		return this.jndiName;
+	}
+
+	public Ssl getSsl() {
+		return this.ssl;
+	}
+
+	public static class Ssl {
+
+		/**
+		 * Whether to enable SSL support. If enabled, {@code mail.<protocol>.ssl.enable}
+		 * property is set to {@code true}.
+		 */
+		private boolean enabled = false;
+
+		/**
+		 * SSL bundle name. If not null, {@code mail.<protocol>.ssl.socketFactory}
+		 * property is set to a {@code SSLSocketFactory} obtained from the corresponding
+		 * SSL bundle.
+		 * <p>
+		 * Note that the {@code STARTTLS} command can use the corresponding
+		 * {@code SSLSocketFactory}, even if {@code mail.<protocol>.ssl.enable} property
+		 * is not set.
+		 */
+		private String bundle;
+
+		public boolean isEnabled() {
+			return this.enabled;
+		}
+
+		public void setEnabled(boolean enabled) {
+			this.enabled = enabled;
+		}
+
+		public String getBundle() {
+			return this.bundle;
+		}
+
+		public void setBundle(String bundle) {
+			this.bundle = bundle;
+		}
+
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import javax.servlet.Servlet;
-import javax.servlet.ServletRegistration.Dynamic;
+import jakarta.servlet.Servlet;
+import jakarta.servlet.ServletRegistration.Dynamic;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.util.Assert;
@@ -33,7 +33,9 @@ import org.springframework.util.StringUtils;
  * @author Phillip Webb
  * @author Julio José Gómez Díaz
  * @since 2.0.0
+ * @deprecated since 3.3.0 in favor of {@code @Endpoint} and {@code @WebEndpoint}
  */
+@Deprecated(since = "3.3.0", forRemoval = true)
 public final class EndpointServlet {
 
 	private final Servlet servlet;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.springframework.boot.actuate.endpoint.web.test;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -32,10 +33,10 @@ import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.Extension;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
-import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
+import org.junit.platform.commons.util.AnnotationUtils;
 
 import org.springframework.boot.actuate.endpoint.invoke.convert.ConversionServiceParameterValueMapper;
 import org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver;
@@ -45,6 +46,7 @@ import org.springframework.boot.actuate.endpoint.web.annotation.WebEndpointDisco
 import org.springframework.boot.actuate.endpoint.web.jersey.JerseyEndpointResourceFactory;
 import org.springframework.boot.actuate.endpoint.web.reactive.WebFluxEndpointHandlerMapping;
 import org.springframework.boot.actuate.endpoint.web.servlet.WebMvcEndpointHandlerMapping;
+import org.springframework.boot.actuate.endpoint.web.test.WebEndpointTest.Infrastructure;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.http.HttpMessageConvertersAutoConfiguration;
 import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
@@ -66,6 +68,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.MergedAnnotations;
 import org.springframework.core.annotation.MergedAnnotations.SearchStrategy;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.server.reactive.HttpHandler;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.util.ClassUtils;
@@ -90,16 +93,14 @@ class WebEndpointTestInvocationContextProvider implements TestTemplateInvocation
 	@Override
 	public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(
 			ExtensionContext extensionContext) {
-		return Stream.of(
-				new WebEndpointsInvocationContext("Jersey",
-						WebEndpointTestInvocationContextProvider::createJerseyContext),
-				new WebEndpointsInvocationContext("WebMvc",
-						WebEndpointTestInvocationContextProvider::createWebMvcContext),
-				new WebEndpointsInvocationContext("WebFlux",
-						WebEndpointTestInvocationContextProvider::createWebFluxContext));
+		WebEndpointTest webEndpointTest = AnnotationUtils
+			.findAnnotation(extensionContext.getRequiredTestMethod(), WebEndpointTest.class)
+			.orElseThrow(() -> new IllegalStateException("Unable to find WebEndpointTest annotation on %s"
+				.formatted(extensionContext.getRequiredTestMethod())));
+		return Stream.of(webEndpointTest.infrastructure()).distinct().map(Infrastructure::createInvocationContext);
 	}
 
-	private static ConfigurableApplicationContext createJerseyContext(List<Class<?>> classes) {
+	static ConfigurableApplicationContext createJerseyContext(List<Class<?>> classes) {
 		AnnotationConfigServletWebServerApplicationContext context = new AnnotationConfigServletWebServerApplicationContext();
 		classes.add(JerseyEndpointConfiguration.class);
 		context.register(ClassUtils.toClassArray(classes));
@@ -107,7 +108,7 @@ class WebEndpointTestInvocationContextProvider implements TestTemplateInvocation
 		return context;
 	}
 
-	private static ConfigurableApplicationContext createWebMvcContext(List<Class<?>> classes) {
+	static ConfigurableApplicationContext createWebMvcContext(List<Class<?>> classes) {
 		AnnotationConfigServletWebServerApplicationContext context = new AnnotationConfigServletWebServerApplicationContext();
 		classes.add(WebMvcEndpointConfiguration.class);
 		context.register(ClassUtils.toClassArray(classes));
@@ -115,7 +116,7 @@ class WebEndpointTestInvocationContextProvider implements TestTemplateInvocation
 		return context;
 	}
 
-	private static ConfigurableApplicationContext createWebFluxContext(List<Class<?>> classes) {
+	static ConfigurableApplicationContext createWebFluxContext(List<Class<?>> classes) {
 		AnnotationConfigReactiveWebServerApplicationContext context = new AnnotationConfigReactiveWebServerApplicationContext();
 		classes.add(WebFluxEndpointConfiguration.class);
 		context.register(ClassUtils.toClassArray(classes));
@@ -126,7 +127,7 @@ class WebEndpointTestInvocationContextProvider implements TestTemplateInvocation
 	static class WebEndpointsInvocationContext
 			implements TestTemplateInvocationContext, BeforeEachCallback, AfterEachCallback, ParameterResolver {
 
-		private static final Duration TIMEOUT = Duration.ofMinutes(6);
+		private static final Duration TIMEOUT = Duration.ofMinutes(5);
 
 		private final String name;
 
@@ -143,8 +144,9 @@ class WebEndpointTestInvocationContextProvider implements TestTemplateInvocation
 		@Override
 		public void beforeEach(ExtensionContext extensionContext) throws Exception {
 			List<Class<?>> configurationClasses = Stream
-					.of(extensionContext.getRequiredTestClass().getDeclaredClasses()).filter(this::isConfiguration)
-					.collect(Collectors.toList());
+				.of(extensionContext.getRequiredTestClass().getDeclaredClasses())
+				.filter(this::isConfiguration)
+				.collect(Collectors.toCollection(ArrayList::new));
 			this.context = this.contextFactory.apply(configurationClasses);
 		}
 
@@ -160,15 +162,13 @@ class WebEndpointTestInvocationContextProvider implements TestTemplateInvocation
 		}
 
 		@Override
-		public boolean supportsParameter(ParameterContext parameterContext, ExtensionContext extensionContext)
-				throws ParameterResolutionException {
+		public boolean supportsParameter(ParameterContext parameterContext, ExtensionContext extensionContext) {
 			Class<?> type = parameterContext.getParameter().getType();
 			return type.equals(WebTestClient.class) || type.isAssignableFrom(ConfigurableApplicationContext.class);
 		}
 
 		@Override
-		public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext)
-				throws ParameterResolutionException {
+		public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext) {
 			Class<?> type = parameterContext.getParameter().getType();
 			if (type.equals(WebTestClient.class)) {
 				return createWebTestClient();
@@ -192,12 +192,22 @@ class WebEndpointTestInvocationContextProvider implements TestTemplateInvocation
 			DefaultUriBuilderFactory uriBuilderFactory = new DefaultUriBuilderFactory(
 					"http://localhost:" + determinePort());
 			uriBuilderFactory.setEncodingMode(EncodingMode.NONE);
-			return WebTestClient.bindToServer().uriBuilderFactory(uriBuilderFactory).responseTimeout(TIMEOUT).build();
+			return WebTestClient.bindToServer()
+				.uriBuilderFactory(uriBuilderFactory)
+				.responseTimeout(TIMEOUT)
+				.codecs((codecs) -> codecs.defaultCodecs().maxInMemorySize(-1))
+				.filter((request, next) -> {
+					if (HttpMethod.GET == request.method()) {
+						return next.exchange(request).retry(10);
+					}
+					return next.exchange(request);
+				})
+				.build();
 		}
 
 		private int determinePort() {
-			if (this.context instanceof AnnotationConfigServletWebServerApplicationContext) {
-				return ((AnnotationConfigServletWebServerApplicationContext) this.context).getWebServer().getPort();
+			if (this.context instanceof AnnotationConfigServletWebServerApplicationContext webServerContext) {
+				return webServerContext.getWebServer().getPort();
 			}
 			return this.context.getBean(PortHolder.class).getPort();
 		}

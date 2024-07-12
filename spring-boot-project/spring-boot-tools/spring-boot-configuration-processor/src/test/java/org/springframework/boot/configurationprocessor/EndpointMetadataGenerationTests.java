@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,15 +27,20 @@ import org.springframework.boot.configurationsample.endpoint.CustomPropertiesEnd
 import org.springframework.boot.configurationsample.endpoint.DisabledEndpoint;
 import org.springframework.boot.configurationsample.endpoint.EnabledEndpoint;
 import org.springframework.boot.configurationsample.endpoint.SimpleEndpoint;
+import org.springframework.boot.configurationsample.endpoint.SimpleEndpoint2;
+import org.springframework.boot.configurationsample.endpoint.SimpleEndpoint3;
 import org.springframework.boot.configurationsample.endpoint.SpecificEndpoint;
 import org.springframework.boot.configurationsample.endpoint.incremental.IncrementalEndpoint;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatRuntimeException;
 
 /**
  * Metadata generation tests for Actuator endpoints.
  *
  * @author Stephane Nicoll
+ * @author Scott Frederick
+ * @author Moritz Halbritter
  */
 class EndpointMetadataGenerationTests extends AbstractMetadataGenerationTests {
 
@@ -68,9 +73,10 @@ class EndpointMetadataGenerationTests extends AbstractMetadataGenerationTests {
 	void customPropertiesEndpoint() {
 		ConfigurationMetadata metadata = compile(CustomPropertiesEndpoint.class);
 		assertThat(metadata)
-				.has(Metadata.withGroup("management.endpoint.customprops").fromSource(CustomPropertiesEndpoint.class));
-		assertThat(metadata).has(Metadata.withProperty("management.endpoint.customprops.name").ofType(String.class)
-				.withDefaultValue("test"));
+			.has(Metadata.withGroup("management.endpoint.customprops").fromSource(CustomPropertiesEndpoint.class));
+		assertThat(metadata).has(Metadata.withProperty("management.endpoint.customprops.name")
+			.ofType(String.class)
+			.withDefaultValue("test"));
 		assertThat(metadata).has(enabledFlag("customprops", true));
 		assertThat(metadata).has(cacheTtl("customprops"));
 		assertThat(metadata.getItems()).hasSize(4);
@@ -89,67 +95,85 @@ class EndpointMetadataGenerationTests extends AbstractMetadataGenerationTests {
 	void camelCaseEndpoint() {
 		ConfigurationMetadata metadata = compile(CamelCaseEndpoint.class);
 		assertThat(metadata)
-				.has(Metadata.withGroup("management.endpoint.pascal-case").fromSource(CamelCaseEndpoint.class));
+			.has(Metadata.withGroup("management.endpoint.pascal-case").fromSource(CamelCaseEndpoint.class));
 		assertThat(metadata).has(enabledFlag("PascalCase", "pascal-case", true));
 		assertThat(metadata.getItems()).hasSize(2);
 	}
 
 	@Test
-	void incrementalEndpointBuildChangeGeneralEnabledFlag() throws Exception {
-		TestProject project = new TestProject(this.tempDir, IncrementalEndpoint.class);
-		ConfigurationMetadata metadata = project.fullBuild();
+	void incrementalEndpointBuildChangeGeneralEnabledFlag() {
+		TestProject project = new TestProject(IncrementalEndpoint.class);
+		ConfigurationMetadata metadata = project.compile();
 		assertThat(metadata)
-				.has(Metadata.withGroup("management.endpoint.incremental").fromSource(IncrementalEndpoint.class));
+			.has(Metadata.withGroup("management.endpoint.incremental").fromSource(IncrementalEndpoint.class));
 		assertThat(metadata).has(enabledFlag("incremental", true));
 		assertThat(metadata).has(cacheTtl("incremental"));
 		assertThat(metadata.getItems()).hasSize(3);
 		project.replaceText(IncrementalEndpoint.class, "id = \"incremental\"",
 				"id = \"incremental\", enableByDefault = false");
-		metadata = project.incrementalBuild(IncrementalEndpoint.class);
+		metadata = project.compile();
 		assertThat(metadata)
-				.has(Metadata.withGroup("management.endpoint.incremental").fromSource(IncrementalEndpoint.class));
+			.has(Metadata.withGroup("management.endpoint.incremental").fromSource(IncrementalEndpoint.class));
 		assertThat(metadata).has(enabledFlag("incremental", false));
 		assertThat(metadata).has(cacheTtl("incremental"));
 		assertThat(metadata.getItems()).hasSize(3);
 	}
 
 	@Test
-	void incrementalEndpointBuildChangeCacheFlag() throws Exception {
-		TestProject project = new TestProject(this.tempDir, IncrementalEndpoint.class);
-		ConfigurationMetadata metadata = project.fullBuild();
+	void incrementalEndpointBuildChangeCacheFlag() {
+		TestProject project = new TestProject(IncrementalEndpoint.class);
+		ConfigurationMetadata metadata = project.compile();
 		assertThat(metadata)
-				.has(Metadata.withGroup("management.endpoint.incremental").fromSource(IncrementalEndpoint.class));
+			.has(Metadata.withGroup("management.endpoint.incremental").fromSource(IncrementalEndpoint.class));
 		assertThat(metadata).has(enabledFlag("incremental", true));
 		assertThat(metadata).has(cacheTtl("incremental"));
 		assertThat(metadata.getItems()).hasSize(3);
 		project.replaceText(IncrementalEndpoint.class, "@Nullable String param", "String param");
-		metadata = project.incrementalBuild(IncrementalEndpoint.class);
+		metadata = project.compile();
 		assertThat(metadata)
-				.has(Metadata.withGroup("management.endpoint.incremental").fromSource(IncrementalEndpoint.class));
+			.has(Metadata.withGroup("management.endpoint.incremental").fromSource(IncrementalEndpoint.class));
 		assertThat(metadata).has(enabledFlag("incremental", true));
 		assertThat(metadata.getItems()).hasSize(2);
 	}
 
 	@Test
-	void incrementalEndpointBuildEnableSpecificEndpoint() throws Exception {
-		TestProject project = new TestProject(this.tempDir, SpecificEndpoint.class);
-		ConfigurationMetadata metadata = project.fullBuild();
+	void incrementalEndpointBuildEnableSpecificEndpoint() {
+		TestProject project = new TestProject(SpecificEndpoint.class);
+		ConfigurationMetadata metadata = project.compile();
 		assertThat(metadata).has(Metadata.withGroup("management.endpoint.specific").fromSource(SpecificEndpoint.class));
 		assertThat(metadata).has(enabledFlag("specific", true));
 		assertThat(metadata).has(cacheTtl("specific"));
 		assertThat(metadata.getItems()).hasSize(3);
 		project.replaceText(SpecificEndpoint.class, "enableByDefault = true", "enableByDefault = false");
-		metadata = project.incrementalBuild(SpecificEndpoint.class);
+		metadata = project.compile();
 		assertThat(metadata).has(Metadata.withGroup("management.endpoint.specific").fromSource(SpecificEndpoint.class));
 		assertThat(metadata).has(enabledFlag("specific", false));
 		assertThat(metadata).has(cacheTtl("specific"));
 		assertThat(metadata.getItems()).hasSize(3);
 	}
 
+	@Test
+	void shouldTolerateEndpointWithSameId() {
+		ConfigurationMetadata metadata = compile(SimpleEndpoint.class, SimpleEndpoint2.class);
+		assertThat(metadata).has(Metadata.withGroup("management.endpoint.simple").fromSource(SimpleEndpoint.class));
+		assertThat(metadata).has(enabledFlag("simple", "simple", true));
+		assertThat(metadata).has(cacheTtl("simple"));
+		assertThat(metadata.getItems()).hasSize(3);
+	}
+
+	@Test
+	void shouldFailIfEndpointWithSameIdButWithConflictingEnabledByDefaultSetting() {
+		assertThatRuntimeException().isThrownBy(() -> compile(SimpleEndpoint.class, SimpleEndpoint3.class))
+			.havingRootCause()
+			.isInstanceOf(IllegalStateException.class)
+			.withMessage(
+					"Existing property 'management.endpoint.simple.enabled' from type org.springframework.boot.configurationsample.endpoint.SimpleEndpoint has a conflicting value. Existing value: true, new value from type org.springframework.boot.configurationsample.endpoint.SimpleEndpoint3: false");
+	}
+
 	private Metadata.MetadataItemCondition enabledFlag(String endpointId, String endpointSuffix, Boolean defaultValue) {
 		return Metadata.withEnabledFlag("management.endpoint." + endpointSuffix + ".enabled")
-				.withDefaultValue(defaultValue)
-				.withDescription(String.format("Whether to enable the %s endpoint.", endpointId));
+			.withDefaultValue(defaultValue)
+			.withDescription(String.format("Whether to enable the %s endpoint.", endpointId));
 	}
 
 	private Metadata.MetadataItemCondition enabledFlag(String endpointId, Boolean defaultValue) {
@@ -157,8 +181,10 @@ class EndpointMetadataGenerationTests extends AbstractMetadataGenerationTests {
 	}
 
 	private Metadata.MetadataItemCondition cacheTtl(String endpointId) {
-		return Metadata.withProperty("management.endpoint." + endpointId + ".cache.time-to-live").ofType(Duration.class)
-				.withDefaultValue("0ms").withDescription("Maximum time that a response can be cached.");
+		return Metadata.withProperty("management.endpoint." + endpointId + ".cache.time-to-live")
+			.ofType(Duration.class)
+			.withDefaultValue("0ms")
+			.withDescription("Maximum time that a response can be cached.");
 	}
 
 }

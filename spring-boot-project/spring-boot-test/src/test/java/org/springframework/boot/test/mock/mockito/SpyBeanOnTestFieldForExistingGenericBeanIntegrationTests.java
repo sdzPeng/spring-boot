@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
+import static org.mockito.BDDMockito.then;
 
 /**
  * Test {@link SpyBean @SpyBean} on a test class field can be used to replace existing
@@ -39,6 +39,8 @@ import static org.mockito.Mockito.verify;
  * @author Phillip Webb
  * @see SpyBeanOnTestFieldForExistingBeanCacheIntegrationTests
  */
+@SuppressWarnings("removal")
+@Deprecated(since = "3.4.0", forRemoval = true)
 @ExtendWith(SpringExtension.class)
 class SpyBeanOnTestFieldForExistingGenericBeanIntegrationTests {
 
@@ -53,7 +55,7 @@ class SpyBeanOnTestFieldForExistingGenericBeanIntegrationTests {
 	@Test
 	void testSpying() {
 		assertThat(this.caller.sayGreeting()).isEqualTo("I say 123 simple");
-		verify(this.exampleService).greeting();
+		then(this.exampleService).should().greeting();
 	}
 
 	@Configuration(proxyBeanMethods = false)

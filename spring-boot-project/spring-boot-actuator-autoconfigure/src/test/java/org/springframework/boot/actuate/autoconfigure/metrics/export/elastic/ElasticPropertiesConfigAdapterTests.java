@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package org.springframework.boot.actuate.autoconfigure.metrics.export.elastic;
 
 import org.junit.jupiter.api.Test;
 
+import org.springframework.boot.actuate.autoconfigure.metrics.export.properties.AbstractPropertiesConfigAdapterTests;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -25,7 +27,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @author Andy Wilkinson
  */
-class ElasticPropertiesConfigAdapterTests {
+class ElasticPropertiesConfigAdapterTests
+		extends AbstractPropertiesConfigAdapterTests<ElasticProperties, ElasticPropertiesConfigAdapter> {
+
+	ElasticPropertiesConfigAdapterTests() {
+		super(ElasticPropertiesConfigAdapter.class);
+	}
 
 	@Test
 	void whenPropertiesHostsIsSetAdapterHostsReturnsIt() {
@@ -46,6 +53,13 @@ class ElasticPropertiesConfigAdapterTests {
 		ElasticProperties properties = new ElasticProperties();
 		properties.setIndexDateFormat("yyyy");
 		assertThat(new ElasticPropertiesConfigAdapter(properties).indexDateFormat()).isEqualTo("yyyy");
+	}
+
+	@Test
+	void whenPropertiesIndexDateSeparatorIsSetAdapterIndexDateSeparatorReturnsIt() {
+		ElasticProperties properties = new ElasticProperties();
+		properties.setIndexDateSeparator("*");
+		assertThat(new ElasticPropertiesConfigAdapter(properties).indexDateSeparator()).isEqualTo("*");
 	}
 
 	@Test
@@ -74,6 +88,20 @@ class ElasticPropertiesConfigAdapterTests {
 		ElasticProperties properties = new ElasticProperties();
 		properties.setPassword("secret");
 		assertThat(new ElasticPropertiesConfigAdapter(properties).password()).isEqualTo("secret");
+	}
+
+	@Test
+	void whenPropertiesPipelineIsSetAdapterPipelineReturnsIt() {
+		ElasticProperties properties = new ElasticProperties();
+		properties.setPipeline("testPipeline");
+		assertThat(new ElasticPropertiesConfigAdapter(properties).pipeline()).isEqualTo("testPipeline");
+	}
+
+	@Test
+	void whenPropertiesApiKeyCredentialsIsSetAdapterPipelineReturnsIt() {
+		ElasticProperties properties = new ElasticProperties();
+		properties.setApiKeyCredentials("secret");
+		assertThat(new ElasticPropertiesConfigAdapter(properties).apiKeyCredentials()).isEqualTo("secret");
 	}
 
 }

@@ -1,0 +1,12 @@
+plugins {
+	id 'org.springframework.boot' version '{version}'
+	id 'java'
+}
+
+apply plugin: 'org.graalvm.buildtools.native'
+
+task('bootBuildImageConfiguration') {
+	doFirst {
+		println "BP_NATIVE_IMAGE = ${tasks.getByName('bootBuildImage').environment.get()['BP_NATIVE_IMAGE']}"
+	}
+}
